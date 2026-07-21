@@ -35,7 +35,7 @@
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-junit4</artifactId>
             <version>${allure.version}</version>
-       </dependency>
+        </dependency>
 
         <dependency>
             <groupId>io.qameta.allure</groupId>
@@ -47,7 +47,7 @@
             <groupId>com.github.javafaker</groupId>
             <artifactId>javafaker</artifactId>
             <version>${javafaker.version}</version>
-            </dependency>
+        </dependency>
 
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -88,6 +88,4 @@
             </plugin>
         </plugins>
     </build>
-
-
 </project>

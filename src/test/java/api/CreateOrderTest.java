@@ -1,129 +1,109 @@
 package api;
 
-import io.qameta.allure.restassured.AllureRestAssured;
-import io.restassured.RestAssured;
+import io.qameta.allure.Description;
+import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.Response;
+import model.Order;
 import model.User;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import utils.TestData;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
-import static io.restassured.RestAssured.given;
+import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
+import static org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR;
+import static org.apache.http.HttpStatus.SC_OK;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.notNullValue;
 
 public class CreateOrderTest {
     private String accessToken;
-    private String email;
     private List<String> ingredients;
 
     @Before
     public void setUp(){
-        RestAssured.baseURI = "https://stellarburgers.education-services.ru";
-        User user = TestData.getUser();
-        email = user.getEmail();
+        User user = User.getRandomUser();
+        Response registerResponse = ApiClient.registerUser(user);
+        accessToken = registerResponse.jsonPath().getString("accessToken");
 
-        Response response = given()
-                .filter(new AllureRestAssured())
-                .header("Content-Type", "application/json")
-                .body(user)
-                .post("/api/auth/register");
-
-        accessToken = response.jsonPath().getString("accessToken");
-
-        Response ingredientsResponse = given()
-                .filter(new AllureRestAssured())
-                .get("/api/ingredients");
-
+        Response ingredientsResponse = ApiClient.getIngredients();
         ingredients = ingredientsResponse.jsonPath().getList("data._id");
    }
 
    @After
     public void tearDown(){
         if(accessToken != null){
-            given()
-                    .filter(new AllureRestAssured())
-                    .header("Authorization", accessToken)
-                    .delete("/api/auth/user")
-                    .then()
-                    .statusCode(202);
+            ApiClient.deleteUser(accessToken);
+            accessToken = null;
         }
    }
 
     @Test
+    @DisplayName("Создание заказа с авторизацией")
+    @Description("Проверка успешного создания заказа авторизованным пользователем")
     public void createOrderWithAuth(){
-        Response response = given()
-                .filter(new AllureRestAssured())
-                .header("Content-Type", "application/json")
-                .header("Authorization", accessToken)
-                .body("{\"ingredients\":[\"" + ingredients.get(0) + "\",\"" + ingredients.get(1) + "\"]}")
-                .post("/api/orders");
+        Order order = new Order(Arrays.asList(ingredients.get(0), ingredients.get(1)));
+        Response response = ApiClient.createOrder(order, accessToken);
 
         response.then()
-                .statusCode(200)
-                .body("success", org.hamcrest.Matchers.equalTo(true))
-                .body("order.number", org.hamcrest.Matchers.notNullValue())
-                .body("order.owner.email", org.hamcrest.Matchers.equalTo(email));
+                .statusCode(SC_OK)
+                .body("success", equalTo(true))
+                .body("order.number", notNullValue())
+                .body("order.owner.email", notNullValue());
     }
 
     @Test
+    @DisplayName("Создание заказа без авторизации")
+    @Description("Проверка создания заказа гостем без токена авторизации")
     public void createOrderWithoutAuth(){
-        Response response = given()
-                .filter(new AllureRestAssured())
-                .header("Content-Type", "application/json")
-                .body("{\"ingredients\":[\"" + ingredients.get(0) + "\",\"" + ingredients.get(1) + "\"]}")
-                .post("/api/orders");
+        Order order = new Order(Arrays.asList(ingredients.get(0), ingredients.get(1)));
+        Response response = ApiClient.createOrderWithoutAuth(order);
 
         response.then()
-                .statusCode(200)
-                .body("success", org.hamcrest.Matchers.equalTo(true))
-                .body("name", org.hamcrest.Matchers.notNullValue())
-                .body("order.number", org.hamcrest.Matchers.notNullValue());
+                .statusCode(SC_OK)
+                .body("success", equalTo(true))
+                .body("name", notNullValue())
+                .body("order.number", notNullValue());
     }
 
     @Test
+    @DisplayName("Создание заказа с ингредиентами")
+    @Description("Проверка создания заказа с одним валидным ингредиентом")
     public void createOrderWithIngredients(){
-        Response response = given()
-                .filter(new AllureRestAssured())
-                .header("Content-Type", "application/json")
-                .header("Authorization", accessToken)
-                .body("{\"ingredients\":[\"" + ingredients.get(0) + "\"]}")
-                .post("/api/orders");
+        Order order = new Order(Collections.singletonList(ingredients.get(0)));
+        Response response = ApiClient.createOrder(order, accessToken);
 
         response.then()
-                .statusCode(200)
-                .body("success", org.hamcrest.Matchers.equalTo(true))
-                .body("order.number", org.hamcrest.Matchers.notNullValue())
-                .body("order.owner.email", org.hamcrest.Matchers.equalTo(email));
+                .statusCode(SC_OK)
+                .body("success", equalTo(true))
+                .body("order.number", notNullValue());
   }
 
     @Test
+    @DisplayName("Создание заказа без ингредиентов")
+    @Description("Проверка ошибки при создании заказа без списка ингредиентов")
     public void createOrderWithoutIngredients(){
-        Response response = given()
-                .filter(new AllureRestAssured())
-                .header("Content-Type", "application/json")
-                .header("Authorization", accessToken)
-                .body("{\"ingredients\":[]}")
-                .post("/api/orders");
+        Order order= new Order(Collections.emptyList());
+        Response response = ApiClient.createOrder(order, accessToken);
 
         response.then()
-                .statusCode(400)
-                .body("success", org.hamcrest.Matchers.equalTo(false))
-                .body("message", org.hamcrest.Matchers.equalTo("Ingredient ids must be provided"));
+                .statusCode(SC_BAD_REQUEST)
+                .body("success", equalTo(false))
+                .body("message", equalTo("Ingredient ids must be provided"));
     }
 
     @Test
+    @DisplayName("Создание заказа с неверным хешем ингредиентов")
+    @Description("Проверка ошибки при использовании невалидного хеша ингредиентов")
     public void createOrderWithWrongHash(){
-        Response response = given()
-                .filter(new AllureRestAssured())
-                .header("Content-Type", "application/json")
-                .header("Authorization", accessToken)
-                .body("{\"ingredients\":[\"wrong_hash\"]}")
-                .post("/api/orders");
+        Order order = new Order(Collections.singletonList("61cccccc0c5a71d1f82001bdafffffffa6f"));
+        Response response = ApiClient.createOrder(order, accessToken);
 
         response.then()
-                .statusCode(500);
+                .statusCode(SC_INTERNAL_SERVER_ERROR);
     }
 
 }
