@@ -1,15 +1,17 @@
 package api;
 
+import io.qameta.allure.Step;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import model.User;
 import model.Order;
+import model.User;
 
 import static io.restassured.RestAssured.given;
 
 public class ApiClient {
     private static final String BASE_URL = "https://stellarburgers.education-services.ru";
 
+    @Step("Регистрация пользователя")
     public static Response registerUser(User user){
         return given()
                 .baseUri(BASE_URL)
@@ -18,6 +20,7 @@ public class ApiClient {
                 .post("/api/auth/register");
     }
 
+    @Step("Авторизация пользователя")
     public static Response loginUser(User user){
         return given()
                 .baseUri(BASE_URL)
@@ -26,6 +29,7 @@ public class ApiClient {
                 .post("/api/auth/login");
     }
 
+    @Step("Удаление пользователя")
     public static Response deleteUser(String accessToken){
         return given()
                 .baseUri(BASE_URL)
@@ -33,12 +37,14 @@ public class ApiClient {
                 .delete("/api/auth/user");
     }
 
+    @Step("Получение списка ингредиентов")
     public static Response getIngredients(){
         return given()
                 .baseUri(BASE_URL)
                 .get("/api/ingredients");
     }
 
+    @Step("Создание заказа с авторизацией")
     public static Response createOrder(Order order, String accessToken){
         return given()
                 .baseUri(BASE_URL)
@@ -48,6 +54,7 @@ public class ApiClient {
                 .post("/api/orders");
     }
 
+    @Step("Создание заказа без авторизации")
     public static Response createOrderWithoutAuth(Order order){
         return given()
                 .baseUri(BASE_URL)
